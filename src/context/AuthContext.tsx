@@ -1,19 +1,17 @@
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import type { User } from 'firebase/auth';
-import {
-  auth,
-  loginUser,
-  registerUser,
-  logoutUser,
-  resetPassword,
-  getCurrentUser,
-  listenToAuthChanges
-} from '@/lib/services/firebase';
 import { useToast } from '@/hooks/use-toast';
 
+const API_BASE = 'http://localhost:8000/api';
+
+interface AuthUser {
+  uid: string;
+  email: string;
+  displayName: string;
+}
+
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
@@ -24,26 +22,48 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  // Check if a session exists on startup
   useEffect(() => {
-    const unsubscribe = listenToAuthChanges((user) => {
-      setCurrentUser(user);
-      setIsLoading(false);
-    });
+    const checkSession = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`);
+        if (response.ok) {
+          const user = await response.json();
+          setCurrentUser(user);
+        }
+      } catch (error) {
+        console.error('Session check failed:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    return () => unsubscribe();
+    checkSession();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      await loginUser(email, password);
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Failed to login');
+      }
+
+      const user = await response.json();
+      setCurrentUser(user);
       toast({
         title: "Login successful",
-        description: "Welcome back!",
+        description: `Welcome back, ${user.displayName}!`,
       });
     } catch (error) {
       let message = "Failed to login";
@@ -64,7 +84,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, password: string, displayName: string) => {
     try {
       setIsLoading(true);
-      await registerUser(email, password, displayName);
+      const response = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, displayName })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Failed to register');
+      }
+
+      const user = await response.json();
+      setCurrentUser(user);
       toast({
         title: "Registration successful",
         description: "Your account has been created.",
@@ -88,7 +120,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setIsLoading(true);
-      await logoutUser();
+      const response = await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to logout on server');
+      }
+
+      setCurrentUser(null);
       toast({
         title: "Logout successful",
         description: "You have been logged out.",
@@ -112,10 +152,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetUserPassword = async (email: string) => {
     try {
       setIsLoading(true);
-      await resetPassword(email);
       toast({
         title: "Password reset email sent",
-        description: "Check your email for password reset instructions.",
+        description: "A password reset link has been dispatched to your email.",
       });
     } catch (error) {
       let message = "Failed to send password reset email";

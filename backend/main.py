@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import uuid
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -41,6 +43,82 @@ async def shutdown_event():
             await trading_task
         except asyncio.CancelledError:
             pass
+
+# Simple persistence for users in a JSON file
+USERS_FILE = "users_db.json"
+users_db = {}
+if os.path.exists(USERS_FILE):
+    try:
+        with open(USERS_FILE, "r") as f:
+            users_db = json.load(f)
+    except Exception:
+        pass
+
+# Current active user session (mock)
+current_user = None
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    displayName: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest):
+    global current_user
+    if req.email in users_db:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    uid = str(uuid.uuid4())
+    user_data = {
+        "uid": uid,
+        "email": req.email,
+        "password": req.password,
+        "displayName": req.displayName
+    }
+    users_db[req.email] = user_data
+    
+    try:
+        with open(USERS_FILE, "w") as f:
+            json.dump(users_db, f)
+    except Exception:
+        pass
+        
+    current_user = {
+        "uid": uid,
+        "email": req.email,
+        "displayName": req.displayName
+    }
+    return current_user
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    global current_user
+    user_data = users_db.get(req.email)
+    if not user_data or user_data["password"] != req.password:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+        
+    current_user = {
+        "uid": user_data["uid"],
+        "email": user_data["email"],
+        "displayName": user_data["displayName"]
+    }
+    return current_user
+
+@app.post("/api/auth/logout")
+def logout():
+    global current_user
+    current_user = None
+    return {"status": "success"}
+
+@app.get("/api/auth/me")
+def get_me():
+    return current_user
 
 class BacktestRequest(BaseModel):
     pair: str
