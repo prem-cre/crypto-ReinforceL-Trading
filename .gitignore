@@ -4,6 +4,10 @@ node_modules/
 .pnp.js
 venv/
 .venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
 # Testing
 coverage/

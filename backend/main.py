@@ -1,11 +1,16 @@
 import asyncio
 import json
 import os
+import sys
 import uuid
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, List
+
+# Ensure the root folder is in sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from backend.bot.trading_bot import TradingBot
 from backend.exchange.exchange_simulator import ExchangeSimulator
 
