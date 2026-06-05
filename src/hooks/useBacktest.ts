@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import type { BacktestResult } from '../types/trading';
 import type { BacktestConfig } from '../components/backtest/BacktestConfig';
-import { PaperExchange } from '../lib/exchange/paperExchange';
-import { TradingBot } from '../lib/bot/tradingBot';
-import { MarketAnalyzer } from '../lib/analysis/marketAnalyzer';
-import { RiskManager } from '../lib/risk/riskManager';
-import { logInfo } from '../lib/utils/logger';
+
+const API_BASE = 'http://localhost:8000/api';
 
 export const useBacktest = () => {
   const [isRunning, setIsRunning] = useState(false);
@@ -14,20 +11,28 @@ export const useBacktest = () => {
   const startBacktest = async (config: BacktestConfig) => {
     try {
       setIsRunning(true);
-      // TODO: Implement actual backtest logic
-      // For now, return mock data
-      const mockResults: BacktestResult = {
-        totalPnl: 15.5,
-        winRate: 65,
-        totalTrades: 100,
-        averagePnl: 0.155,
-        trades: [],
-        equityCurve: Array.from({ length: 100 }, (_, i) => ({
-          timestamp: Date.now() - (100 - i) * 24 * 60 * 60 * 1000,
-          equity: 10000 * (1 + i * 0.001)
-        }))
-      };
-      setResults(mockResults);
+      
+      const response = await fetch(`${API_BASE}/backtest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pair: config.pair,
+          timeframe: config.timeframe,
+          initialBalance: config.initialBalance
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to run backtest on backend');
+      const data = await response.json();
+      
+      setResults({
+        totalPnl: data.totalPnL,
+        winRate: data.winRate,
+        totalTrades: data.totalTrades,
+        averagePnl: data.averagePnL,
+        trades: data.trades,
+        equityCurve: data.equityCurve
+      });
     } catch (error) {
       console.error('Backtest error:', error);
     } finally {

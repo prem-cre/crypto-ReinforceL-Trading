@@ -22,7 +22,6 @@ import { LearningMetrics } from "../components/learning/LearningMetrics";
 import { useBacktest } from '../hooks/useBacktest';
 import { Welcome } from '../components/welcome/Welcome';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { PaperExchange } from '../lib/exchange/paperExchange';
 import { useMarketData } from '../hooks/useMarketData';
 
 const { Header, Content } = Layout;
@@ -41,8 +40,7 @@ export function Dashboard() {
     riskRewardRatio: "2",
   });
 
-  const exchange = new PaperExchange();
-  const { marketData, loading: marketLoading } = useMarketData(exchange);
+  const { marketData, loading: marketLoading } = useMarketData();
   const {
     tradingSignal,
     loading,
@@ -52,25 +50,69 @@ export function Dashboard() {
 
   const { startBacktest, isRunning, results } = useBacktest();
 
-  // Mock data for trading metrics (replace with real data later)
-  const tradingMetrics = {
-    balance: Number(marketData?.price) || 10000,
-    pnl: 5.2,
-    winRate: 65,
-    totalTrades: 42,
-    openPositions: 2,
-    recentSignals: tradingSignal ? [tradingSignal] : []
-  };
+  // State fields driven by the backend WebSocket connection
+  const [tradingMetrics, setTradingMetrics] = useState({
+    balance: 10000,
+    pnl: 0.0,
+    winRate: 100,
+    totalTrades: 0,
+    openPositions: 0,
+    recentSignals: [] as any[]
+  });
 
-  const [learningMetrics] = useState({
-    episodeRewards: [],
-    explorationRate: 90,
+  const [learningMetrics, setLearningMetrics] = useState({
+    episodeRewards: [] as number[],
+    explorationRate: 0,
     learningRate: 0.001,
-    totalEpisodes: 1000,
+    totalEpisodes: 0,
     currentEpisode: 0,
     averageReward: 0,
     bestReward: 0,
   });
+
+  // Connect WebSocket to FastAPI backend
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:8000/ws");
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "initial" || data.type === "update") {
+          const status = data.status || {};
+          const rl = status.rlStatus || {};
+          
+          setTradingMetrics({
+            balance: status.balance || (Number(marketData?.price) || 10000),
+            pnl: data.performance?.forwardTest?.totalPnL || 0.0,
+            winRate: data.performance?.forwardTest?.winRate || 100,
+            totalTrades: data.performance?.forwardTest?.totalTrades || 0,
+            openPositions: status.position ? 1 : 0,
+            recentSignals: data.signals || []
+          });
+
+          setLearningMetrics({
+            episodeRewards: rl.episodeRewards || [],
+            explorationRate: rl.explorationRate || 0,
+            learningRate: rl.learningRate || 0.001,
+            totalEpisodes: rl.totalEpisodes || 0,
+            currentEpisode: rl.totalEpisodes || 0,
+            averageReward: rl.averageReward || 0.0,
+            bestReward: rl.bestReward || 0.0
+          });
+        }
+      } catch (err) {
+        console.error("Error parsing websocket message:", err);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("Dashboard WebSocket error:", err);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [marketData]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
