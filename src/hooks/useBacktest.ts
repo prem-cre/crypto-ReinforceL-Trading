@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import type { BacktestResult } from '../types/trading';
 import type { BacktestConfig } from '../components/backtest/BacktestConfig';
-
-const API_BASE = 'http://localhost:8000/api';
+import { apiFetch } from '../lib/api';
 
 export const useBacktest = () => {
   const [isRunning, setIsRunning] = useState(false);
@@ -11,27 +10,26 @@ export const useBacktest = () => {
   const startBacktest = async (config: BacktestConfig) => {
     try {
       setIsRunning(true);
-      
-      const response = await fetch(`${API_BASE}/backtest`, {
+
+      const response = await apiFetch('/backtest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pair: config.pair,
           timeframe: config.timeframe,
-          initialBalance: config.initialBalance
-        })
+          initialBalance: config.initialBalance,
+        }),
       });
 
       if (!response.ok) throw new Error('Failed to run backtest on backend');
       const data = await response.json();
-      
+
       setResults({
         totalPnl: data.totalPnL,
         winRate: data.winRate,
         totalTrades: data.totalTrades,
         averagePnl: data.averagePnL,
         trades: data.trades,
-        equityCurve: data.equityCurve
+        equityCurve: data.equityCurve,
       });
     } catch (error) {
       console.error('Backtest error:', error);
@@ -43,6 +41,6 @@ export const useBacktest = () => {
   return {
     startBacktest,
     isRunning,
-    results
+    results,
   };
-}; 
+};

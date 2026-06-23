@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { TradingSignal } from '../types/trading';
-
-const API_BASE = 'http://localhost:8000/api';
+import { apiFetch } from '../lib/api';
 
 interface TradingSignalOptions {
   exchange?: string;
@@ -19,19 +18,18 @@ export const useTradingSignal = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE}/signal`, {
+      const response = await apiFetch('/signal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pair,
           leverage: options?.leverage ?? 10,
-          capital: options?.capital ?? 100
-        })
+          capital: options?.capital ?? 100,
+        }),
       });
 
       if (!response.ok) throw new Error('Failed to generate signal from server');
       const data = await response.json();
-      
+
       setTradingSignal({
         timestamp: data.timestamp,
         pair: data.pair,
@@ -39,11 +37,15 @@ export const useTradingSignal = () => {
         price: data.price,
         size: data.size,
         confidence: data.confidence,
-        reason: data.reason
+        reason: data.reason,
+        // Phase 2 LLM fields (optional; renderer falls back to reason)
+        rationale: data.rationale,
+        citations: data.citations,
+        sentiment_score: data.sentiment_score,
       });
-    } catch (error) {
+    } catch (e) {
       setError('Failed to generate trading signal');
-      console.error('Error generating trading signal:', error);
+      console.error('Error generating trading signal:', e);
     } finally {
       setLoading(false);
     }
@@ -53,6 +55,6 @@ export const useTradingSignal = () => {
     tradingSignal,
     loading,
     error,
-    generateTradingSignal
+    generateTradingSignal,
   };
 };

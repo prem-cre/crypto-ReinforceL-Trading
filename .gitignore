@@ -86,3 +86,15 @@ Thumbs.db
 .yarn/install-state.gz
 .pnp.*
 
+# Project-specific
+users_db.json
+data/models/*.safetensors
+data/models/*.pt
+data/models/*.json
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+wandb/
+

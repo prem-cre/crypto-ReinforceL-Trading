@@ -1,0 +1,43 @@
+# Local dev: spins up Postgres + pgvector and the backend.
+# For deploy we point DATABASE_URL at Neon — no local Postgres needed.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cryptobot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: development
+      PORT: 7860
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/cryptobot
+      DATABASE_URL_SYNC: postgresql://postgres:postgres@postgres:5432/cryptobot
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_MODEL_REPO: ${HF_MODEL_REPO:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      WANDB_API_KEY: ${WANDB_API_KEY:-}
+    ports:
+      - "8000:7860"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

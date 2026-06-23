@@ -117,4 +117,7 @@ export const TradingSignal: React.FC<TradingSignalProps> = ({ symbol, onRefresh 
             </Space>
           </div>
         </Space>
- 
+      </Card>
+    </div>
+  );
+};

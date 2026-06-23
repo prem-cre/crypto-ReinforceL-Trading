@@ -20,6 +20,7 @@ import { BacktestResults } from "../components/backtest/BacktestResults";
 import { TradingMetrics } from "../components/trading/TradingMetrics";
 import { LearningMetrics } from "../components/learning/LearningMetrics";
 import { useBacktest } from '../hooks/useBacktest';
+import { WS_URL } from '../lib/api';
 import { Welcome } from '../components/welcome/Welcome';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMarketData } from '../hooks/useMarketData';
@@ -72,7 +73,7 @@ export function Dashboard() {
 
   // Connect WebSocket to FastAPI backend
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8000/ws");
+    const ws = new WebSocket(WS_URL);
     
     ws.onmessage = (event) => {
       try {
