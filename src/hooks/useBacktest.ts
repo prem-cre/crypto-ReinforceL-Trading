@@ -30,6 +30,11 @@ export const useBacktest = () => {
         averagePnl: data.averagePnL,
         trades: data.trades,
         equityCurve: data.equityCurve,
+        sharpe: data.sharpe,
+        sortino: data.sortino,
+        maxDrawdownPct: data.maxDrawdownPct,
+        benchmarkPnlPct: data.benchmarkPnlPct,
+        alpha: data.alpha,
       });
     } catch (error) {
       console.error('Backtest error:', error);

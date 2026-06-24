@@ -81,5 +81,6 @@ export interface BacktestResult {
   sortino?: number;
   calmar?: number;
   maxDrawdownPct?: number;
-  benchmarkPnl?: number;
+  benchmarkPnlPct?: number;
+  alpha?: number;
 }
