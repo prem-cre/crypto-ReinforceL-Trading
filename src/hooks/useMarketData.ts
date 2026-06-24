@@ -2,23 +2,34 @@ import { useState, useEffect } from 'react';
 import { TradingPair, MarketData } from '../types/trading';
 import { apiFetch } from '../lib/api';
 
+const FALLBACK_PAIRS: TradingPair[] = [
+  { symbol: 'BTC/USDT', name: 'Bitcoin' },
+  { symbol: 'ETH/USDT', name: 'Ethereum' },
+  { symbol: 'BNB/USDT', name: 'BNB' },
+  { symbol: 'SOL/USDT', name: 'Solana' },
+];
+
 export const useMarketData = (_exchange?: any) => {
-  const [tradingPairs, setTradingPairs] = useState<TradingPair[]>([]);
+  const [tradingPairs, setTradingPairs] = useState<TradingPair[]>(FALLBACK_PAIRS);
   const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // never block the UI
 
   useEffect(() => {
     const fetchTradingPairs = async () => {
       try {
-        const response = await apiFetch('/pairs');
-        if (!response.ok) throw new Error('Failed to fetch trading pairs');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const response = await apiFetch('/pairs', { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!response.ok) return;
         const pairs = await response.json();
-        setTradingPairs(pairs.slice(0, 10));
-      } catch (error) {
-        console.error('Error fetching trading pairs:', error);
+        if (Array.isArray(pairs) && pairs.length > 0) {
+          setTradingPairs(pairs.slice(0, 10));
+        }
+      } catch {
+        // keep fallback pairs, don't block UI
       }
     };
-
     fetchTradingPairs();
   }, []);
 
@@ -28,8 +39,7 @@ export const useMarketData = (_exchange?: any) => {
     const updateMarketData = async () => {
       try {
         const newMarketData: Record<string, MarketData> = {};
-
-        for (const pair of tradingPairs) {
+        for (const pair of tradingPairs.slice(0, 4)) {
           const response = await apiFetch(`/market-data/${encodeURIComponent(pair.symbol)}`);
           if (response.ok) {
             const data = await response.json();
@@ -39,22 +49,21 @@ export const useMarketData = (_exchange?: any) => {
               high: data.high,
               low: data.low,
               volume: data.volume,
-              priceChange24h: 0,
+              priceChange24h: data.priceChange24h ?? 0,
               volume24h: data.volume,
             };
           }
         }
-
-        setMarketData(newMarketData);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error updating market data:', error);
+        if (Object.keys(newMarketData).length > 0) {
+          setMarketData(newMarketData);
+        }
+      } catch {
+        // silent — market data is non-critical
       }
     };
 
     updateMarketData();
-    const interval = setInterval(updateMarketData, 5000);
-
+    const interval = setInterval(updateMarketData, 10000);
     return () => clearInterval(interval);
   }, [tradingPairs]);
 

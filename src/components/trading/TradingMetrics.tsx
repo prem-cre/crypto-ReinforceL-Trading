@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Row, Col, Statistic, Table } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Activity, Layers } from 'lucide-react';
+import { Table } from 'antd';
 import { TradingSignal } from '../../types/trading';
 
 interface TradingMetricsProps {
@@ -13,105 +13,58 @@ interface TradingMetricsProps {
 }
 
 export const TradingMetrics: React.FC<TradingMetricsProps> = ({
-  balance,
-  pnl,
-  winRate,
-  totalTrades,
-  openPositions,
-  recentSignals,
+  balance, pnl, winRate, totalTrades, openPositions, recentSignals,
 }) => {
+  const stats = [
+    { label: "Portfolio Balance", value: `$${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: DollarSign, sub: "Paper trading account", color: "#60a5fa" },
+    { label: "Total PnL", value: `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}%`, icon: pnl >= 0 ? TrendingUp : TrendingDown, sub: pnl >= 0 ? "Profit" : "Loss", color: pnl >= 0 ? "#10b981" : "#ef4444" },
+    { label: "Win Rate", value: `${winRate.toFixed(1)}%`, icon: Percent, sub: `${totalTrades} trades total`, color: "#a78bfa" },
+    { label: "Open Positions", value: String(openPositions), icon: Layers, sub: "Active right now", color: "#f59e0b" },
+  ];
+
   const columns = [
-    {
-      title: 'Time',
-      dataIndex: 'timestamp',
-      key: 'timestamp',
-      render: (timestamp: number) => new Date(timestamp).toLocaleString(),
-    },
-    {
-      title: 'Pair',
-      dataIndex: 'pair',
-      key: 'pair',
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-    },
-    {
-      title: 'Price',
-      dataIndex: 'price',
-      key: 'price',
-      render: (price: number) => price.toFixed(2),
-    },
-    {
-      title: 'Size',
-      dataIndex: 'size',
-      key: 'size',
-      render: (size: number) => size.toFixed(4),
-    },
+    { title: 'Time',  dataIndex: 'timestamp', key: 'timestamp', render: (t: number) => new Date(t).toLocaleTimeString() },
+    { title: 'Pair',  dataIndex: 'pair', key: 'pair', render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+    { title: 'Side',  dataIndex: 'type', key: 'type', render: (v: string) => (
+      <span className={v === "BUY" ? "badge-buy" : v === "SELL" ? "badge-sell" : "badge-hold"}>{v}</span>
+    )},
+    { title: 'Price', dataIndex: 'price', key: 'price', render: (v: number) => `$${v?.toLocaleString() ?? "-"}` },
+    { title: 'Size',  dataIndex: 'size',  key: 'size',  render: (v: number) => v?.toFixed(4) ?? "-" },
   ];
 
   return (
-    <div>
-      <Row gutter={[16, 16]}>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Balance"
-              value={balance}
-              precision={2}
-              prefix="$"
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="PnL"
-              value={pnl}
-              precision={2}
-              prefix={pnl >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-              suffix="%"
-              valueStyle={{ color: pnl >= 0 ? '#3f8600' : '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Win Rate"
-              value={winRate}
-              precision={2}
-              suffix="%"
-            />
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card>
-            <Statistic
-              title="Total Trades"
-              value={totalTrades}
-            />
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card>
-            <Statistic
-              title="Open Positions"
-              value={openPositions}
-            />
-          </Card>
-        </Col>
-      </Row>
+    <div className="space-y-5">
+      <div className="metrics-grid">
+        {stats.map(({ label, value, icon: Icon, sub, color }) => (
+          <div key={label} className="stat-card">
+            <div className="flex items-center justify-between mb-3">
+              <span className="stat-label">{label}</span>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+                <Icon size={15} style={{ color }} />
+              </div>
+            </div>
+            <p className="stat-value" style={{ fontSize: 20, color }}>{value}</p>
+            <p className="stat-sub">{sub}</p>
+          </div>
+        ))}
+      </div>
 
-      <Card title="Recent Signals" style={{ marginTop: 16 }}>
-        <Table
-          dataSource={recentSignals}
-          columns={columns}
-          pagination={{ pageSize: 5 }}
-          rowKey={(record) => `${record.timestamp}-${record.pair}-${record.type}`}
-        />
-      </Card>
+      <div className="dash-card">
+        <h3 className="text-white font-semibold mb-4">Recent Signals</h3>
+        {recentSignals.length === 0 ? (
+          <div className="flex items-center gap-2 text-slate-500 text-sm py-8 justify-center">
+            <Activity size={16} /> No signals yet — bot is warming up
+          </div>
+        ) : (
+          <Table
+            dataSource={recentSignals}
+            columns={columns}
+            pagination={{ pageSize: 5, size: "small" }}
+            rowKey={(r: any) => `${r.timestamp}-${r.pair}-${r.type}`}
+            size="small"
+          />
+        )}
+      </div>
     </div>
   );
-}; 
+};

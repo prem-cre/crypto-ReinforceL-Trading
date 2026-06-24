@@ -1,74 +1,119 @@
 import React from 'react';
-import { Card, Typography, Button } from 'antd';
-import { BarChart2, LineChart, Brain } from 'lucide-react';
+import { BarChart2, LineChart, Brain, Zap, TrendingUp, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const { Title, Paragraph } = Typography;
+const cards = [
+  {
+    icon: BarChart2,
+    color: "from-violet-500 to-purple-600",
+    bg: "rgba(139,92,246,0.08)",
+    border: "rgba(139,92,246,0.2)",
+    title: "Backtesting",
+    desc: "Walk-forward validation with Sharpe, Sortino & Calmar ratios. Compare strategy vs buy-and-hold.",
+    action: "Start Backtest",
+    tab: "backtest",
+  },
+  {
+    icon: LineChart,
+    color: "from-cyan-500 to-blue-600",
+    bg: "rgba(6,182,212,0.08)",
+    border: "rgba(6,182,212,0.2)",
+    title: "Live Trading",
+    desc: "Real-time PPO signals with Kelly-fraction position sizing and 15% drawdown circuit breaker.",
+    action: "Start Trading",
+    tab: "live",
+  },
+  {
+    icon: Brain,
+    color: "from-emerald-500 to-teal-600",
+    bg: "rgba(16,185,129,0.08)",
+    border: "rgba(16,185,129,0.2)",
+    title: "RL Learning",
+    desc: "Monitor PPO actor-critic training, episode rewards, exploration rate and policy convergence.",
+    action: "View Metrics",
+    tab: "learning",
+  },
+];
+
+const stats = [
+  { icon: Zap, label: "RL Algorithm", value: "PPO Actor-Critic" },
+  { icon: TrendingUp, label: "Signal Source", value: "Gemini + RAG" },
+  { icon: Shield, label: "Risk Model", value: "Kelly + VaR 95%" },
+  { icon: BarChart2, label: "Validation", value: "Walk-Forward 4-Fold" },
+];
 
 export const Welcome: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="p-8">
-      <div className="mb-12">
-        <Title level={1} className="text-white">Welcome to Crypto Trading Assistant</Title>
-        <Paragraph className="text-gray-300">
-          A powerful tool for automated cryptocurrency trading, backtesting, and strategy optimization. Monitor real-time market data, execute trades, and optimize your strategies with machine learning.
-        </Paragraph>
+    <div className="space-y-8">
+      {/* Hero */}
+      <div>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-4"
+          style={{ background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.2)" }}>
+          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+          PPO RL Model Active
+        </div>
+        <h1 className="text-3xl font-bold text-white mb-2">Crypto RL Trading Bot</h1>
+        <p className="text-slate-400 max-w-xl">
+          Autonomous trading powered by Proximal Policy Optimization with LLM-grounded signal rationale,
+          real-time RAG from CryptoPanic &amp; Reddit, and production MLOps.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-gray-800 text-white hover:bg-gray-700 transition-colors">
-          <div className="flex flex-col items-start gap-4">
-            <BarChart2 size={24} />
-            <Title level={3} className="text-white">Backtesting</Title>
-            <Paragraph className="text-gray-300">
-              Test your trading strategies against historical data to evaluate performance. Analyze results and optimize your approach before going live.
-            </Paragraph>
-            <Button 
-              type="primary"
-              onClick={() => navigate('/dashboard?tab=backtest')}
-              className="mt-auto"
-            >
-              Start Backtesting
-            </Button>
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {stats.map(({ icon: Icon, label, value }) => (
+          <div key={label} className="dash-card py-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(139,92,246,0.12)" }}>
+              <Icon size={16} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">{label}</p>
+              <p className="text-sm font-semibold text-white">{value}</p>
+            </div>
           </div>
-        </Card>
+        ))}
+      </div>
 
-        <Card className="bg-gray-800 text-white hover:bg-gray-700 transition-colors">
-          <div className="flex flex-col items-start gap-4">
-            <LineChart size={24} />
-            <Title level={3} className="text-white">Live Trading</Title>
-            <Paragraph className="text-gray-300">
-              Execute trades in real-time with automated strategies and risk management. Monitor positions and performance with real-time updates.
-            </Paragraph>
-            <Button 
-              type="primary"
-              onClick={() => navigate('/dashboard?tab=live')}
-              className="mt-auto"
+      {/* Feature cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {cards.map(({ icon: Icon, color, bg, border, title, desc, action, tab }) => (
+          <div
+            key={tab}
+            className="hero-card"
+            style={{ background: bg, borderColor: border }}
+          >
+            <div className={`hero-icon bg-gradient-to-br ${color}`}>
+              <Icon size={20} className="text-white" />
+            </div>
+            <h3 className="text-white font-semibold text-base">{title}</h3>
+            <p className="text-slate-400 text-sm flex-1">{desc}</p>
+            <button
+              className="btn-primary w-full justify-center mt-2"
+              onClick={() => navigate(`/dashboard?tab=${tab}`)}
             >
-              Start Trading
-            </Button>
+              {action}
+            </button>
           </div>
-        </Card>
+        ))}
+      </div>
 
-        <Card className="bg-gray-800 text-white hover:bg-gray-700 transition-colors">
-          <div className="flex flex-col items-start gap-4">
-            <Brain size={24} />
-            <Title level={3} className="text-white">Learning</Title>
-            <Paragraph className="text-gray-300">
-              Monitor and optimize your trading strategies using machine learning. View performance metrics and adjust parameters for better results.
-            </Paragraph>
-            <Button 
-              type="primary"
-              onClick={() => navigate('/dashboard?tab=learning')}
-              className="mt-auto"
-            >
-              View Metrics
-            </Button>
-          </div>
-        </Card>
+      {/* Architecture note */}
+      <div className="dash-card">
+        <div className="accent-bar w-16" />
+        <h3 className="text-white font-semibold mb-3">Tech Stack</h3>
+        <div className="flex flex-wrap gap-2">
+          {["PyTorch PPO", "FastAPI", "Neon pgvector", "Gemini 2.0 Flash", "W&B MLOps",
+            "HF Hub", "KS Drift Detection", "Kelly Sizing", "Walk-Forward CV"].map(tag => (
+            <span key={tag} className="px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {tag}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
-}; 
+};
