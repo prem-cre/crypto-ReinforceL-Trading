@@ -112,6 +112,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.responses import JSONResponse
+from starlette.requests import Request as StarletteRequest
+import traceback
+
+@app.exception_handler(Exception)
+async def _global_exc_handler(request: StarletteRequest, exc: Exception):
+    logger.error(f"Unhandled: {exc}\n{traceback.format_exc()}")
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
+
 app.include_router(auth_router)
 
 
@@ -214,8 +223,25 @@ def get_market_data(pair: str) -> Dict[str, Any]:
 
 
 @app.post("/api/signal")
-async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
-    return await bot.get_trading_signal(req.pair)
+async def generate_signal(req: SignalRequest, db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+    signal = await bot.get_trading_signal(req.pair)
+    # Phase 2: augment signal with LLM-grounded rationale + citations
+    try:
+        from backend.rag.llm_explainer import explain_signal
+        llm_result = await explain_signal(db, signal["pair"], signal["type"], signal["price"])
+        signal["sentiment_score"] = llm_result.get("sentiment_score", 0.0)
+        signal["rationale"] = llm_result.get("rationale", "")
+        signal["citations"] = llm_result.get("citations", [])
+    except Exception as e:
+        logger.warning(f"LLM explainer failed: {e}")
+    return signal
+
+
+@app.post("/api/ingest-news")
+async def trigger_news_ingestion() -> Dict[str, Any]:
+    from backend.rag.ingestion import ingest_news
+    count = await ingest_news()
+    return {"ingested": count}
 
 
 @app.post("/api/backtest")
@@ -273,6 +299,19 @@ async def get_performance(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
         },
         "accuracy": 0.72,
     }
+
+
+@app.get("/api/monitoring/drift")
+def get_drift() -> Dict[str, Any]:
+    from backend.monitoring.drift import drift_monitor
+    return drift_monitor.report()
+
+
+@app.get("/api/risk")
+def get_risk() -> Dict[str, Any]:
+    from backend.risk.risk_manager import RiskManager
+    rm = RiskManager(initial_balance=bot.balance)
+    return rm.report(bot.balance)
 
 
 # ──────────────────────────────────────────────────────────────────

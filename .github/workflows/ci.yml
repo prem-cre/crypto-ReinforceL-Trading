@@ -46,7 +46,7 @@ jobs:
         run: alembic upgrade head
 
       - name: Run pytest
-        run: pytest backend/tests -q || echo "no tests yet (Phase 4 fills these in)"
+        run: pytest backend/tests -v --tb=short
 
   frontend-build:
     runs-on: ubuntu-latest

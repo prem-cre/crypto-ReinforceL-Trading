@@ -1,3 +1,4 @@
+import re
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -8,9 +9,19 @@ from sqlalchemy.ext.asyncio import (
 
 from backend.config import settings
 
+
+def _make_async_url(raw: str) -> str:
+    url = re.sub(r"[&?]channel_binding=[^&]*", "", raw)
+    # asyncpg uses 'ssl' not 'sslmode'
+    url = url.replace("sslmode=require", "ssl=require")
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
 # Async engine for FastAPI request handlers
 engine = create_async_engine(
-    settings.database_url,
+    _make_async_url(settings.database_url),
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,

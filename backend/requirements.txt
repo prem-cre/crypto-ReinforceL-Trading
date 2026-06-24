@@ -8,6 +8,7 @@ python-multipart==0.0.20
 pydantic==2.10.4
 pydantic-settings==2.7.0
 python-dotenv==1.0.1
+email-validator==2.2.0
 
 # Database (Neon Postgres + pgvector)
 sqlalchemy[asyncio]==2.0.36
@@ -25,10 +26,12 @@ python-jose[cryptography]==3.3.0
 ccxt==4.4.40
 pandas==2.2.3
 numpy==1.26.4
+scipy==1.14.1
 ta==0.11.0
 
-# ML / RL
-torch==2.5.1
+# ML / RL (CPU-only torch keeps the Docker image under 1.5GB)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
 safetensors==0.4.5
 
 # Model registry + LLM/RAG (Phase 2 ready)

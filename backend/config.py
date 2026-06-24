@@ -1,7 +1,13 @@
 import os
+import re
 from typing import List
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _clean_neon_url(url: str) -> str:
+    """Strip query params asyncpg / psycopg2 don't understand (e.g. channel_binding)."""
+    return re.sub(r"[&?]channel_binding=[^&]*", "", url)
 
 
 class Settings(BaseSettings):
@@ -14,13 +20,24 @@ class Settings(BaseSettings):
     )
 
     # ─── Database (Neon Postgres + pgvector) ─────────────────────
-    # Example: postgresql+asyncpg://user:pass@ep-xxx.neon.tech/dbname?sslmode=require
+    # Accepts a plain postgresql:// URL; auto-converts to asyncpg.
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/cryptobot",
         validation_alias="DATABASE_URL",
     )
     # Sync URL for Alembic migrations (auto-derived if not set)
     database_url_sync: str = Field(default="", validation_alias="DATABASE_URL_SYNC")
+
+    @model_validator(mode="after")
+    def _normalise_database_urls(self) -> "Settings":
+        """Ensure database_url uses asyncpg and strip unsupported Neon params."""
+        url = _clean_neon_url(self.database_url)
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        self.database_url = url
+        if self.database_url_sync:
+            self.database_url_sync = _clean_neon_url(self.database_url_sync)
+        return self
 
     # ─── Auth ────────────────────────────────────────────────────
     jwt_secret: str = Field(
@@ -106,9 +123,8 @@ class Settings(BaseSettings):
     @property
     def sync_database_url(self) -> str:
         """Used by Alembic. Falls back to converting async URL → sync."""
-        if self.database_url_sync:
-            return self.database_url_sync
-        return self.database_url.replace("+asyncpg", "")
+        url = _clean_neon_url(self.database_url_sync or self.database_url)
+        return url.replace("+asyncpg", "")
 
 
 settings = Settings()

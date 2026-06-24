@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: PPO RL agent trading crypto with LLM-grounded signal rationale
+short_description: PPO RL crypto trading bot with RAG signals
 ---
 
 # Crypto RL Trading Bot — Backend API

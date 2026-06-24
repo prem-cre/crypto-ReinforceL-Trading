@@ -22,6 +22,7 @@ import { LearningMetrics } from "../components/learning/LearningMetrics";
 import { useBacktest } from '../hooks/useBacktest';
 import { WS_URL } from '../lib/api';
 import { Welcome } from '../components/welcome/Welcome';
+import { SignalRationale } from '../components/SignalRationale';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMarketData } from '../hooks/useMarketData';
 
@@ -207,7 +208,14 @@ export function Dashboard() {
           {loading ? (
             <div className="text-center p-8">Loading...</div>
           ) : tradingSignal ? (
-            <TradingSignalCard signal={tradingSignal} />
+            <>
+              <TradingSignalCard signal={tradingSignal} />
+              <SignalRationale
+                rationale={tradingSignal.rationale}
+                citations={tradingSignal.citations}
+                sentiment_score={tradingSignal.sentiment_score}
+              />
+            </>
           ) : (
             <TradingSignalCard signal={{ ...mockTradingSignal, pair: selectedPair }} />
           )}

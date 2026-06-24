@@ -181,6 +181,11 @@ class TradingBot:
 
         total_pnl = float(env.realized_pnl)
         pnl_pct = (total_pnl / initial_balance) * 100.0
+        equity_values = [e["equity"] for e in equity_curve]
+        benchmark_prices = df_indicators["close"].tolist() if "close" in df_indicators.columns else []
+
+        from backend.metrics.performance import compute_all
+        metrics = compute_all(backtest_trades, equity_values, initial_balance, benchmark_prices)
 
         return {
             "totalPnL": pnl_pct,
@@ -189,6 +194,14 @@ class TradingBot:
             "averagePnL": float(total_pnl / env.trade_count) if env.trade_count > 0 else 0.0,
             "trades": backtest_trades,
             "equityCurve": equity_curve,
+            # Phase 3 metrics
+            "sharpe": metrics.get("sharpe", 0.0),
+            "sortino": metrics.get("sortino", 0.0),
+            "calmar": metrics.get("calmar", 0.0),
+            "maxDrawdownPct": metrics.get("maxDrawdownPct", 0.0),
+            "benchmarkPnlPct": metrics.get("benchmarkPnlPct", 0.0),
+            "alpha": metrics.get("alpha", 0.0),
+            "profitFactor": metrics.get("profitFactor", 0.0),
         }
 
     # ─── Live paper-trading loop ────────────────────────────────

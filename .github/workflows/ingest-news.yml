@@ -1,0 +1,17 @@
+name: Ingest Crypto News
+
+on:
+  schedule:
+    - cron: "0 * * * *"  # every hour
+  workflow_dispatch: {}
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ingestion endpoint
+        run: |
+          curl -s -X POST \
+            "https://hhh444-trading-bot.hf.space/api/ingest-news" \
+            -H "Content-Type: application/json" \
+            --max-time 60
