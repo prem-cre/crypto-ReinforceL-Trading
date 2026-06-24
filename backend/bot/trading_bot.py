@@ -179,22 +179,39 @@ class TradingBot:
             if step_count >= len(df_indicators) - 1:
                 break
 
-        total_pnl = float(env.realized_pnl)
-        pnl_pct = (total_pnl / initial_balance) * 100.0
         equity_values = [e["equity"] for e in equity_curve]
         benchmark_prices = df_indicators["close"].tolist() if "close" in df_indicators.columns else []
 
+        # Use equity-based total return — captures fee drag even when individual
+        # trade PnLs are near-zero (untrained agent flips every candle)
+        final_equity = equity_values[-1] if equity_values else initial_balance
+        pnl_pct = (final_equity - initial_balance) / initial_balance * 100.0
+
         from backend.metrics.performance import compute_all
-        metrics = compute_all(backtest_trades, equity_values, initial_balance, benchmark_prices)
+        # Build trade-level PnL from equity steps for accurate win/loss counting
+        equity_trades = []
+        for i in range(1, len(equity_values)):
+            step_pnl = equity_values[i] - equity_values[i - 1]
+            if abs(step_pnl) > 0.01:  # only count meaningful moves
+                equity_trades.append({"pnl": step_pnl})
+
+        metrics = compute_all(equity_trades, equity_values, initial_balance, benchmark_prices)
+
+        # Actual win rate from closed trades (fall back to equity-step win rate)
+        if env.trade_count > 0:
+            win_rate = float(env.win_count / env.trade_count * 100)
+        else:
+            wins = sum(1 for t in equity_trades if t["pnl"] > 0)
+            win_rate = wins / len(equity_trades) * 100 if equity_trades else 0.0
 
         return {
-            "totalPnL": pnl_pct,
-            "winRate": float(env.win_count / env.trade_count * 100) if env.trade_count > 0 else 0.0,
-            "totalTrades": env.trade_count,
-            "averagePnL": float(total_pnl / env.trade_count) if env.trade_count > 0 else 0.0,
+            "totalPnL": round(pnl_pct, 4),
+            "winRate": round(win_rate, 2),
+            "totalTrades": env.trade_count or len(equity_trades),
+            "averagePnL": round(pnl_pct / max(env.trade_count, 1), 4),
             "trades": backtest_trades,
             "equityCurve": equity_curve,
-            # Phase 3 metrics
+            # Phase 3 metrics — all computed from equity curve
             "sharpe": metrics.get("sharpe", 0.0),
             "sortino": metrics.get("sortino", 0.0),
             "calmar": metrics.get("calmar", 0.0),
