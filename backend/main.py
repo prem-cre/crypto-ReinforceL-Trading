@@ -212,6 +212,28 @@ async def get_signals(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
     ]
 
 
+@app.post("/api/admin/migrate")
+def run_migrations() -> Dict[str, Any]:
+    """Manually trigger database migrations (idempotent)."""
+    import subprocess
+    import os
+    try:
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return {
+            "status": "success" if result.returncode == 0 else "failed",
+            "stdout": result.stdout[-500:] if result.stdout else "",
+            "stderr": result.stderr[-500:] if result.stderr else "",
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/api/pairs")
 def get_pairs() -> List[Dict[str, Any]]:
     return bot.exchange.get_trading_pairs()

@@ -47,5 +47,5 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -fsS http://localhost:${PORT}/healthz || exit 1
 
-# Run migrations then start API.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]
+# Try migrations but don't fail if DB not ready — app handles DB gracefully
+CMD ["sh", "-c", "alembic upgrade head || true && uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]

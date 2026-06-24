@@ -1,3 +1,15 @@
+---
+title: Crypto RL Trading Bot
+emoji: 📈
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: PPO RL crypto trading bot with RAG signals
+---
+
 # Crypto RL Trading Bot
 
 > **Live Demo:** https://hhh444-trading-bot.hf.space  
