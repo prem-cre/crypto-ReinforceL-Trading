@@ -10,22 +10,21 @@ const App: React.FC = () => {
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {
-          colorPrimary: '#1890ff',
-          borderRadius: 4,
+          colorPrimary: '#7c3aed',
+          colorBgContainer: '#161b27',
+          colorBgElevated: '#1e2535',
+          colorBorder: 'rgba(255,255,255,0.08)',
+          borderRadius: 10,
+          fontFamily: "'Inter', system-ui, sans-serif",
         },
         components: {
-          Layout: {
-            bodyBg: '#141414',
-            headerBg: '#1f1f1f',
-            siderBg: '#1f1f1f',
-          },
-          Card: {
-            colorBgContainer: '#1f1f1f',
-          },
-          Table: {
-            colorBgContainer: '#1f1f1f',
-          }
-        }
+          Layout:  { bodyBg: '#0d1117', headerBg: '#111827', siderBg: '#111827' },
+          Card:    { colorBgContainer: '#161b27' },
+          Table:   { colorBgContainer: 'transparent', headerBg: 'rgba(255,255,255,0.03)' },
+          Select:  { colorBgContainer: 'rgba(255,255,255,0.04)' },
+          Input:   { colorBgContainer: 'rgba(255,255,255,0.04)' },
+          DatePicker: { colorBgContainer: 'rgba(255,255,255,0.04)' },
+        },
       }}
     >
       <BrowserRouter>
