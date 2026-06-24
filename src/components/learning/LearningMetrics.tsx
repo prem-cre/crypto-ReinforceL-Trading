@@ -26,14 +26,24 @@ export const LearningMetrics: React.FC<LearningMetricsProps> = (wsProps) => {
     setTraining(true);
     setTrainMsg(`Training ${episodes} episodes on ${pair}…`);
     try {
-      const res = await apiFetch(`/train?episodes=${episodes}&pair=${encodeURIComponent(pair)}`, { method: 'POST' });
-      if (!res.ok) throw new Error(await res.text());
+      // Send episodes + pair as JSON body so FastAPI reads them as query params
+      const res = await apiFetch(
+        `/train?episodes=${episodes}&pair=${encodeURIComponent(pair)}`,
+        { method: 'POST', body: '' }
+      );
+      if (res.status === 404) {
+        throw new Error('Backend not updated yet — please wait ~2 min for HuggingFace Space to rebuild, then try again.');
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Server error ${res.status}`);
+      }
       const data = await res.json();
       setLocalRewards(prev => [...prev, ...(data.episodeRewards || [])]);
       setTotalEpisodes(data.totalEpisodes || totalEpisodes + episodes);
       setAvgReward(data.averageReward ?? avgReward);
       setBestReward(data.bestReward ?? bestReward);
-      setTrainMsg(`Done! Ran ${data.episodesRun} episodes. Model: ${data.modelVersion}`);
+      setTrainMsg(`✓ Done! Ran ${data.episodesRun} episodes. Model: ${data.modelVersion}`);
     } catch (e: any) {
       setTrainMsg(`Error: ${e.message}`);
     } finally {
