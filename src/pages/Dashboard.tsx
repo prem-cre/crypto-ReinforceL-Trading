@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   BarChart3, ArrowDownUp, History, Settings,
   PlayCircle, Brain, LineChart, Zap, Search,
-  TrendingUp, TrendingDown, Activity, ChevronDown
+  TrendingUp, TrendingDown, Activity, ChevronDown,
+  Users, Cpu, Eye
 } from "lucide-react";
 import { TradingSignalCard } from "../components/trading/TradingSignalCard";
 import { mockTradingSignal, availablePairs } from "../lib/constants/mockData";
@@ -17,6 +18,9 @@ import { Welcome } from '../components/welcome/Welcome';
 import { SignalRationale } from '../components/SignalRationale';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMarketData } from '../hooks/useMarketData';
+import { EnsemblePanel } from '../components/advanced/EnsemblePanel';
+import { ForecastPanel } from '../components/advanced/ForecastPanel';
+import { ExplainPanel } from '../components/advanced/ExplainPanel';
 
 const TABS = [
   { key: "dashboard", label: "Overview", icon: BarChart3 },
@@ -24,6 +28,9 @@ const TABS = [
   { key: "backtest",  label: "Backtest", icon: PlayCircle },
   { key: "live",      label: "Live Trade",icon: LineChart },
   { key: "learning",  label: "Learning", icon: Brain },
+  { key: "ensemble",  label: "Ensemble", icon: Users },
+  { key: "forecast",  label: "Forecast", icon: Cpu },
+  { key: "explain",   label: "Explain",  icon: Eye },
   { key: "history",   label: "History",  icon: History },
   { key: "settings",  label: "Settings", icon: Settings },
 ];
@@ -298,6 +305,9 @@ export function Dashboard() {
           )}
           {activeTab === "live"     && <TradingMetrics {...tradingMetrics} />}
           {activeTab === "learning" && <LearningMetrics {...learningMetrics} />}
+          {activeTab === "ensemble" && <EnsemblePanel />}
+          {activeTab === "forecast" && <ForecastPanel />}
+          {activeTab === "explain"  && <ExplainPanel />}
           {activeTab === "history"  && (
             <div className="dash-card text-slate-400 text-sm">
               No trades recorded yet. Trades executed during live sessions appear here.

@@ -19,6 +19,8 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict, List
 
+import numpy as np
+import torch
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -382,6 +384,153 @@ def get_risk() -> Dict[str, Any]:
     from backend.risk.risk_manager import RiskManager
     rm = RiskManager(initial_balance=bot.balance)
     return rm.report(bot.balance)
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Advanced AI/ML endpoints
+# ──────────────────────────────────────────────────────────────────
+
+@app.post("/api/ensemble/train")
+async def train_ensemble(
+    episodes: int = 5,
+    pair: str = "BTC/USDT",
+) -> Dict[str, Any]:
+    """Train the multi-agent ensemble (momentum + mean-reversion + sentiment)."""
+    from backend.rl.ensemble_agent import EnsembleAgent
+    from backend.rl.trading_env import TradingEnvironment
+
+    df = bot.exchange.fetch_ohlcv(pair, timeframe="1h", limit=200)
+    df_ind = bot.analyzer.calculate_indicators(df)
+
+    if not hasattr(bot, "_ensemble"):
+        bot._ensemble = EnsembleAgent(state_size=10, action_size=3)
+
+    results = []
+    for ep in range(episodes):
+        env = TradingEnvironment(df_ind, initial_balance=10000.0)
+        ep_result = bot._ensemble.train_episode(env)
+        results.append(ep_result)
+        logger.info(f"Ensemble ep {ep+1}/{episodes} — rewards={ep_result['episode_rewards']}")
+
+    return {
+        "episodesRun": episodes,
+        "results": results,
+        **bot._ensemble.get_metrics(),
+    }
+
+
+@app.get("/api/ensemble/status")
+def ensemble_status() -> Dict[str, Any]:
+    if not hasattr(bot, "_ensemble"):
+        return {"initialized": False, "message": "Train the ensemble first via POST /api/ensemble/train"}
+    return {"initialized": True, **bot._ensemble.get_metrics()}
+
+
+@app.post("/api/forecast/train")
+async def train_forecaster(
+    pair: str = "BTC/USDT",
+    epochs: int = 20,
+) -> Dict[str, Any]:
+    """Train the Transformer price forecaster on recent OHLCV data."""
+    from backend.forecasting.transformer_model import price_forecaster
+
+    df = bot.exchange.fetch_ohlcv(pair, timeframe="1h", limit=500)
+    df_ind = bot.analyzer.calculate_indicators(df)
+    result = price_forecaster.train_on_df(df_ind, epochs=epochs)
+    return result
+
+
+@app.get("/api/forecast/predict")
+def get_forecast(pair: str = "BTC/USDT") -> Dict[str, Any]:
+    """Get 1h/4h/24h price predictions from the Transformer model."""
+    from backend.forecasting.transformer_model import price_forecaster
+
+    df = bot.exchange.fetch_ohlcv(pair, timeframe="1h", limit=100)
+    df_ind = bot.analyzer.calculate_indicators(df)
+    prediction = price_forecaster.predict(df_ind)
+    prediction["pair"] = pair
+    prediction["model"] = price_forecaster.get_metrics()
+    return prediction
+
+
+@app.get("/api/explain")
+def explain_decision(pair: str = "BTC/USDT") -> Dict[str, Any]:
+    """SHAP-based explanation for the current RL agent decision."""
+    from backend.explainability.shap_explainer import SHAPExplainer
+
+    df = bot.exchange.fetch_ohlcv(pair, timeframe="1h", limit=100)
+    df_ind = bot.analyzer.calculate_indicators(df)
+    market_state = bot.analyzer.get_market_state(df_ind)
+
+    last_row = df_ind.iloc[-1]
+    close = float(last_row["close"])
+    rsi = float(last_row["rsi"])
+    macd_hist = float(last_row["macd_hist"])
+    trend_val = 1 if market_state["trend"] == "UP" else (-1 if market_state["trend"] == "DOWN" else 0)
+    vol_val = 1.0 if market_state["volatility"] == "HIGH" else (0.0 if market_state["volatility"] == "LOW" else 0.5)
+    mom_val = 1 if market_state["momentum"] == "STRONG" else (-1 if market_state["momentum"] == "WEAK" else 0)
+    regime_val = 1 if market_state["regime"] == "BULL" else -1
+
+    state = np.array([
+        trend_val, vol_val, 0.5, mom_val, regime_val,
+        0.0, 0.0, 0.0,
+        (rsi - 50.0) / 50.0,
+        macd_hist / close if close > 0 else 0,
+    ], dtype=np.float32)
+
+    def policy_fn(s):
+        s_t = torch.FloatTensor(s).unsqueeze(0)
+        with torch.no_grad():
+            probs, _ = bot.agent.policy(s_t)
+        return probs.cpu().numpy().flatten()
+
+    explainer = SHAPExplainer(policy_fn=policy_fn)
+    explanation = explainer.explain(state, n_samples=80)
+    explanation["pair"] = pair
+    explanation["market_state"] = market_state
+    return explanation
+
+
+@app.get("/api/explain/summary")
+def explain_summary(pair: str = "BTC/USDT") -> Dict[str, Any]:
+    """Global feature importance across multiple recent states."""
+    from backend.explainability.shap_explainer import SHAPExplainer
+
+    df = bot.exchange.fetch_ohlcv(pair, timeframe="1h", limit=100)
+    df_ind = bot.analyzer.calculate_indicators(df)
+
+    states = []
+    for i in range(max(0, len(df_ind) - 20), len(df_ind)):
+        row = df_ind.iloc[i]
+        close = float(row["close"])
+        rsi = float(row.get("rsi", 50))
+        macd_hist = float(row.get("macd_hist", 0))
+        ema = float(row.get("ema", close))
+        atr = float(row.get("atr", 0))
+        norm_atr = atr / close if close > 0 else 0
+
+        trend = 1 if close > ema * 1.005 else (-1 if close < ema * 0.995 else 0)
+        vol = 1.0 if norm_atr > 0.02 else (0.0 if norm_atr < 0.005 else 0.5)
+        mom = 1 if rsi > 65 else (-1 if rsi < 35 else 0)
+        regime = 1 if close >= ema else -1
+
+        states.append(np.array([
+            trend, vol, 0.5, mom, regime,
+            0.0, 0.0, 0.0,
+            (rsi - 50.0) / 50.0,
+            macd_hist / close if close > 0 else 0,
+        ], dtype=np.float32))
+
+    def policy_fn(s):
+        s_t = torch.FloatTensor(s).unsqueeze(0)
+        with torch.no_grad():
+            probs, _ = bot.agent.policy(s_t)
+        return probs.cpu().numpy().flatten()
+
+    explainer = SHAPExplainer(policy_fn=policy_fn)
+    summary = explainer.feature_importance_summary(np.array(states), n_samples=30)
+    summary["pair"] = pair
+    return summary
 
 
 # ──────────────────────────────────────────────────────────────────
