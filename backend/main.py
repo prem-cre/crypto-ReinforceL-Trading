@@ -301,6 +301,49 @@ async def get_performance(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     }
 
 
+@app.post("/api/train")
+async def trigger_training(
+    episodes: int = 5,
+    pair: str = "BTC/USDT",
+) -> Dict[str, Any]:
+    """Run N training episodes on live OHLCV data. Called from the Learning tab."""
+    from backend.rl.trading_env import TradingEnvironment
+
+    df = bot.exchange.fetch_ohlcv(pair, timeframe="1h", limit=200)
+    df_ind = bot.analyzer.calculate_indicators(df)
+
+    episode_rewards = []
+    for ep in range(episodes):
+        env = TradingEnvironment(df_ind, initial_balance=10000.0)
+        obs = env.reset()
+        done = False
+        ep_reward = 0.0
+        while not done:
+            action, logprob, value = bot.agent.select_action(obs)
+            obs, reward, done, info = env.step(action)
+            bot.agent.store_experience(obs, action, logprob, reward, done)
+            ep_reward += reward
+
+        loss = bot.agent.learn()
+        bot.agent.total_episodes += 1
+        bot.agent.episode_rewards.append(ep_reward)
+        episode_rewards.append(round(ep_reward, 4))
+        logger.info(f"Episode {ep+1}/{episodes} — reward={ep_reward:.3f} loss={loss:.4f}")
+
+    # Save updated model
+    try:
+        bot.agent.save_policy()
+        bot.agent.model_version = f"v{bot.agent.total_episodes}"
+    except Exception as e:
+        logger.warning(f"Model save failed: {e}")
+
+    return {
+        "episodesRun": episodes,
+        "episodeRewards": episode_rewards,
+        **bot.agent.get_metrics(),
+    }
+
+
 @app.get("/api/monitoring/drift")
 def get_drift() -> Dict[str, Any]:
     from backend.monitoring.drift import drift_monitor
